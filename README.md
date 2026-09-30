@@ -7,9 +7,6 @@ WatchParty is a full-stack movie browsing and synchronized watch-party applicati
 - **Frontend:** Next.js 16, React 19, TypeScript, Tailwind CSS
 - **Backend:** Express 5, Socket.IO, TypeScript
 - **Data:** PostgreSQL and Prisma
-- **Authentication:** JWTs stored in HTTP-only cookies
-- **Email:** SMTP via Nodemailer for account verification and password reset codes
-
 ## Repository layout
 
 ```text
