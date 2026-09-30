@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum WatchPartyStatus {
+  ACTIVE
+  ENDED
+}
+
+enum WatchPartyPlaybackState {
+  PLAYING
+  PAUSED
+}
+
+enum WatchPartyMemberRole {
+  HOST
+  MEMBER
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  username        String    @unique
+  email           String    @unique
+  passwordHash    String
+  name            String?
+  emailVerifiedAt DateTime?
+  role            Role      @default(USER)
+  createdAt       DateTime  @default(now())
+
+  favorites         Favorite[]
+  watchHistory      WatchHistory[]
+  reviews           Review[]
+  emailVerification EmailVerification?
+  passwordReset     PasswordReset?
+
+  hostedWatchParties WatchParty[]        @relation("WatchPartyHost")
+  watchPartyMembers  WatchPartyMember[]
+  watchPartyMessages WatchPartyMessage[]
+  sentWatchPartyInvitations     WatchPartyInvitation[] @relation("WatchPartyInvitationSender")
+  receivedWatchPartyInvitations WatchPartyInvitation[] @relation("WatchPartyInvitationRecipient")
+}
+
+model EmailVerification {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  codeHash   String
+  expiresAt  DateTime
+  lastSentAt DateTime @default(now())
+  attempts   Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordReset {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  codeHash   String
+  expiresAt  DateTime
+  lastSentAt DateTime @default(now())
+  attempts   Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Movie {
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String?
+  thumbnail   String?
+  videoUrl    String
+  duration    Int?
+  releaseYear Int?
+  views       Int     @default(0)
+  rating      Float   @default(0)
+
+  genreId Int
+  genre   Genre @relation(fields: [genreId], references: [id])
+
+  favorites    Favorite[]
+  watchHistory WatchHistory[]
+  viewSessions MovieViewSession[]
+  reviews      Review[]
+  watchParties WatchParty[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Genre {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  movies Movie[]
+}
+
+model Favorite {
+  id Int @id @default(autoincrement())
+
+  userId  Int
+  movieId Int
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+}
+
+model WatchHistory {
+  id Int @id @default(autoincrement())
+
+  userId    Int
+  movieId   Int
+  progress  Int      @default(0)
+  watchedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+}
+
+model MovieViewSession {
+  id        Int      @id @default(autoincrement())
+  movieId   Int
+  sessionId String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@index([movieId, createdAt])
+}
+
+model Review {
+  id      Int     @id @default(autoincrement())
+  rating  Int
+  comment String?
+
+  userId  Int
+  movieId Int
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, movieId])
+}
+
+model WatchParty {
+  id   Int    @id @default(autoincrement())
+  code String @unique
+
+  hostUserId Int
+  movieId    Int
+
+  status            WatchPartyStatus        @default(ACTIVE)
+  playbackState     WatchPartyPlaybackState @default(PAUSED)
+  playbackPosition  Float                   @default(0)
+  playbackUpdatedAt DateTime                @default(now())
+
+  // Increment whenever playback state changes. Clients can ignore stale events.
+  version Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  endedAt   DateTime?
+  expiresAt DateTime?
+
+  host     User                @relation("WatchPartyHost", fields: [hostUserId], references: [id], onDelete: Cascade)
+  movie    Movie               @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  members  WatchPartyMember[]
+  messages WatchPartyMessage[]
+  invitations WatchPartyInvitation[]
+
+  @@index([hostUserId])
+  @@index([movieId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model WatchPartyMember {
+  id Int @id @default(autoincrement())
+
+  partyId Int
+  userId  Int
+  role    WatchPartyMemberRole @default(MEMBER)
+
+  joinedAt   DateTime  @default(now())
+  leftAt     DateTime?
+  lastSeenAt DateTime  @default(now())
+
+  party WatchParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([partyId, userId])
+  @@index([userId])
+  @@index([partyId, leftAt])
+}
+
+model WatchPartyMessage {
+  id Int @id @default(autoincrement())
+
+  partyId   Int
+  userId    Int
+  content   String
+  createdAt DateTime @default(now())
+
+  party WatchParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([partyId, createdAt])
+  @@index([userId])
+}
+
+model WatchPartyInvitation {
+  id            Int       @id @default(autoincrement())
+  partyId       Int
+  inviterUserId Int
+  inviteeUserId Int
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime
+  dismissedAt   DateTime?
+
+  party   WatchParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  inviter User       @relation("WatchPartyInvitationSender", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invitee User       @relation("WatchPartyInvitationRecipient", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+
+  @@unique([partyId, inviteeUserId])
+  @@index([inviteeUserId, expiresAt])
+  @@index([expiresAt])
+}
