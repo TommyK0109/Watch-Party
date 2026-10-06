@@ -3,7 +3,9 @@
   "services": {
     "backend": {
       "root": "backend",
-      "framework": "express"
+      "framework": "express",
+      "entrypoint": "src/server.ts",
+      "buildCommand": "npx prisma generate"
     },
     "frontend": {
       "root": "frontend",
@@ -18,17 +20,16 @@
       }
     },
     {
+      "source": "/socket.io/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
       "source": "/(.*)",
       "destination": {
         "service": "frontend"
       }
     }
-    {
-      "source": "/socket.io/(.*)",
-      "destination": {
-        "service": "backend"
-  }
-}
   ]
 }
-
