@@ -23,6 +23,12 @@
         "service": "frontend"
       }
     }
+    {
+      "source": "/socket.io/(.*)",
+      "destination": {
+        "service": "backend"
+  }
+}
   ]
 }
-```
+
